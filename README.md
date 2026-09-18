@@ -1,14 +1,15 @@
-# astrbot-plugin-helloworld
+# 南京师范大学课程表插件
 
-AstrBot 插件模板 / A template plugin for AstrBot plugin feature
+这是用于查询南京师范大学课程表的 AstrBot 插件。
 
-> [!NOTE]
-> This repo is just a template of [AstrBot](https://github.com/AstrBotDevs/AstrBot) Plugin.
-> 
-> [AstrBot](https://github.com/AstrBotDevs/AstrBot) is an agentic assistant for both personal and group conversations. It can be deployed across dozens of mainstream instant messaging platforms, including QQ, Telegram, Feishu, DingTalk, Slack, LINE, Discord, Matrix, etc. In addition, it provides a reliable and extensible conversational AI infrastructure for individuals, developers, and teams. Whether you need a personal AI companion, an intelligent customer support agent, an automation assistant, or an enterprise knowledge base, AstrBot enables you to quickly build AI applications directly within your existing messaging workflows.
+## 指令列表
 
-# Supports
+- sch b 绑定课表
+- 今日课表
+- 明日课表
 
-- [AstrBot Repo](https://github.com/AstrBotDevs/AstrBot)
-- [AstrBot Plugin Development Docs (Chinese)](https://docs.astrbot.app/dev/star/plugin-new.html)
-- [AstrBot Plugin Development Docs (English)](https://docs.astrbot.app/en/dev/star/plugin-new.html)
+## 开发进度
+
+- [x] 实现基本的绑定与日期课程查询
+- [ ] 实现查看群友课表功能
+- [ ] 实现教室使用情况查询
