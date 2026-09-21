@@ -5,6 +5,7 @@ import json
 
 from astrbot.core.utils.session_waiter import (
     session_waiter,
+    SessionFilter,
     SessionController,
 )
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
@@ -26,6 +27,11 @@ else:
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
         config = json.load(f)
         BASE_URL = config.get("BASE_URL", "")
+
+
+class CustomFilter(SessionFilter):
+    def filter(self, event: AstrMessageEvent) -> str:
+        return event.get_sender_id()
 
 
 @register(
@@ -54,12 +60,16 @@ class MyPlugin(Star):
             yield event.plain_result(
                 "请在60秒内，在本会话内直接发送你的课表外部引用链接。"
             )
+            session_filter = CustomFilter()
 
             @session_waiter(timeout=60, record_history_chains=False)
             async def bind_waiter(
                 controller: SessionController, event: AstrMessageEvent
             ):
                 reference_address = event.message_str
+                # 过滤 Napcat 神秘上报事件
+                if reference_address == "":
+                    return
 
                 if BASE_URL not in reference_address:
                     await event.send(
@@ -96,7 +106,7 @@ class MyPlugin(Star):
                 controller.stop()
 
             try:
-                await bind_waiter(event)
+                await bind_waiter(event, session_filter=session_filter)
             except TimeoutError:
                 yield event.plain_result("已超时，取消绑定。")
             except Exception as e:
@@ -149,7 +159,9 @@ class MyPlugin(Star):
                 if not message:
                     yield event.plain_result("你明天没有课哦~")
                     return
-                yield event.plain_result("明日课程\n" + "".join(message))
+                yield event.plain_result(
+                    "明日课程\n" + "".join(message) + f"日期: {schedule_date}"
+                )
             except Exception as e:
                 logger.exception(f"查看明日课表信息出错: {e}")
                 yield event.plain_result("查看明日课表信息出错。")
