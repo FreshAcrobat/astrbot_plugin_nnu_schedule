@@ -1,32 +1,21 @@
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from datetime import datetime, timezone, timedelta, date
-from icalendar import Calendar
-import json
 
-from astrbot.core.utils.session_waiter import (
-    session_waiter,
-    SessionFilter,
-    SessionController,
-)
-from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
-from astrbot.api.star import Context, Star, register, StarTools
 from astrbot.api import logger
+from astrbot.api.event import AstrMessageEvent, filter
+from astrbot.api.star import Context, Star, StarTools
+from astrbot.core.utils.session_waiter import (
+    SessionController,
+    SessionFilter,
+    session_waiter,
+)
+from icalendar import Calendar
 
-from .core.ics_parser import ics_generator, fetch_ics
+from .core.config import ICS_URL
+from .core.ics_parser import fetch_ics, ics_generator
+from .core.room_parser import NNUClassroomTool
 
 SHANGHAI_TZ = timezone(timedelta(hours=8))
-CONFIG_FILE = Path(__file__).parent / "config.json"
-
-if not CONFIG_FILE.is_file():
-    logger.error(
-        "配置文件 %s 不存在",
-        CONFIG_FILE,
-    )
-    raise ValueError("配置文件缺失，请确保 config.json 存在于插件目录下")
-else:
-    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-        config = json.load(f)
-        BASE_URL = config.get("BASE_URL", "")
 
 
 class CustomFilter(SessionFilter):
@@ -34,19 +23,12 @@ class CustomFilter(SessionFilter):
         return event.get_sender_id()
 
 
-@register(
-    "astrbot_plugin_nnu_schedule",
-    "FreshAcrobat",
-    "用于查询南师大课程表的 AstrBot 插件",
-    "v0.1.0",
-)
 class MyPlugin(Star):
     def __init__(self, context: Context):
         super().__init__(context)
         self.plugin_data_dir = StarTools.get_data_dir(self.name)
-
-    async def initialize(self):
-        """可选择实现异步的插件初始化方法，当实例化该插件类之后会自动调用该方法。"""
+        self.context = context
+        self.context.add_llm_tools(NNUClassroomTool())
 
     @filter.command_group("sch")
     def sch():
@@ -71,7 +53,7 @@ class MyPlugin(Star):
                 if reference_address == "":
                     return
 
-                if BASE_URL not in reference_address:
+                if ICS_URL not in reference_address:
                     await event.send(
                         event.plain_result("未输入正确的链接，已取消绑定。")
                     )

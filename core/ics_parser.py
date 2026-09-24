@@ -1,9 +1,8 @@
-from icalendar import Calendar, Event
+from datetime import datetime, timedelta, timezone
+
 import httpx
-
-from datetime import datetime, timezone, timedelta
-
 from astrbot.api import logger
+from icalendar import Calendar, Event
 
 SHANGHAI_TZ = timezone(timedelta(hours=8))
 
