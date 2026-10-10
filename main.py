@@ -34,6 +34,31 @@ class MyPlugin(Star):
     def sch():
         pass
 
+    @sch.command("u")
+    async def command_update(self, event: AstrMessageEvent):
+        """更新课表"""
+        try:
+            sender_id = event.get_sender_id()
+            reference_address = await self.get_url(sender_id)
+
+            raw_data = await fetch_ics(reference_address)
+            if not raw_data:
+                yield event.plain_result("无法获取课程表数据，更新失败。")
+                return
+
+            ics_content = ics_generator(raw_data, reference_address)
+            if not ics_content:
+                yield event.plain_result("日历文件解析失败，无法生成 ics 文件。")
+                return
+
+            with open(self.plugin_data_dir / f"{sender_id}.ics", "wb") as f:
+                f.write(ics_content)
+        except Exception as e:
+            logger.error(f"更新课表失败: {e}")
+            yield event.plain_result("更新课表失败")
+            return
+        yield event.plain_result("更新课表成功")
+
     @sch.command("b")
     async def command_bind(self, event: AstrMessageEvent):
         """绑定课表"""
@@ -150,6 +175,14 @@ class MyPlugin(Star):
 
         except Exception as e:
             logger.error(f"{e}")
+
+    async def get_url(self, sender_id: str):
+        with open(
+            self.plugin_data_dir / f"{sender_id}.ics", "r", encoding="utf-8"
+        ) as ics_file:
+            sch_cal = Calendar.from_ical(ics_file.read())
+            url = sch_cal.get("x-nnu-url")
+            return url
 
     async def get_schedule(self, event: AstrMessageEvent, target_date: date):
         sender_id = event.get_sender_id()
