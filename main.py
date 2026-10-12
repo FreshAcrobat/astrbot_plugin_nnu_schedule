@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+import json
 
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, filter
@@ -23,30 +24,61 @@ class CustomFilter(SessionFilter):
         return event.get_sender_id()
 
 
-class MyPlugin(Star):
+class NNUSchedulePlugin(Star):
     def __init__(self, context: Context):
         super().__init__(context)
         self.plugin_data_dir = StarTools.get_data_dir(self.name)
+        self.data_file = self.plugin_data_dir / "plugin_data.json"
         self.context = context
         self.context.add_llm_tools(NNUClassroomTool())
 
-    @filter.command_group("sch")
-    def sch():
-        pass
+        self.urls = {}
 
-    @sch.command("u")
+    def _load_plugin_data(self):
+        if self.data_file.exists():
+            try:
+                with open(self.data_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self.urls = data.get("urls", {})
+                logger.info(f"成功加载插件数据：{len(self.urls)} 个绑定链接。")
+            except Exception as e:
+                logger.error(f"加载插件数据失败: {e}")
+        else:
+            self._save_plugin_data()
+
+    def _save_plugin_data(self):
+        try:
+            with open(self.data_file, "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "urls": self.urls,
+                    },
+                    f,
+                    ensure_ascii=False,
+                    indent=4,
+                )
+        except Exception as e:
+            logger.error(f"保存插件数据失败: {e}")
+
+    @filter.command("更新课表")
     async def command_update(self, event: AstrMessageEvent):
         """更新课表"""
         try:
             sender_id = event.get_sender_id()
-            reference_address = await self.get_url(sender_id)
+            if sender_id not in self.urls:
+                yield event.plain_result(
+                    "你还没有绑定过课表哦，请先使用 绑定课表 绑定一次吧。"
+                )
+                return
+
+            reference_address = self.urls[sender_id]
 
             raw_data = await fetch_ics(reference_address)
             if not raw_data:
                 yield event.plain_result("无法获取课程表数据，更新失败。")
                 return
 
-            ics_content = ics_generator(raw_data, reference_address)
+            ics_content = ics_generator(raw_data)
             if not ics_content:
                 yield event.plain_result("日历文件解析失败，无法生成 ics 文件。")
                 return
@@ -59,7 +91,7 @@ class MyPlugin(Star):
             return
         yield event.plain_result("更新课表成功")
 
-    @sch.command("b")
+    @filter.command("绑定课表")
     async def command_bind(self, event: AstrMessageEvent):
         """绑定课表"""
         try:
@@ -92,7 +124,7 @@ class MyPlugin(Star):
                     return
 
                 try:
-                    ics_content = ics_generator(raw_data, reference_address)
+                    ics_content = ics_generator(raw_data)
                     if not ics_content:
                         await event.send(
                             event.plain_result("日历文件解析失败，无法生成 ics 文件。")
@@ -108,6 +140,9 @@ class MyPlugin(Star):
                     await event.send(event.plain_result("处理引用链接失败。"))
                     controller.stop()
                     return
+
+                self.urls[sender_id] = reference_address
+                self._save_plugin_data()
 
                 await event.send(event.plain_result("绑定课表成功"))
                 controller.stop()
@@ -175,14 +210,6 @@ class MyPlugin(Star):
 
         except Exception as e:
             logger.error(f"{e}")
-
-    async def get_url(self, sender_id: str):
-        with open(
-            self.plugin_data_dir / f"{sender_id}.ics", "r", encoding="utf-8"
-        ) as ics_file:
-            sch_cal = Calendar.from_ical(ics_file.read())
-            url = sch_cal.get("x-nnu-url")
-            return url
 
     async def get_schedule(self, event: AstrMessageEvent, target_date: date):
         sender_id = event.get_sender_id()

@@ -20,13 +20,12 @@ async def fetch_ics(calender_url: str):
     return None
 
 
-def ics_generator(ics: str, url: str):
+def ics_generator(ics: str):
     """简化课表信息"""
     cal = Calendar.from_ical(ics)
     simplifed = Calendar()
     simplifed.add("prodid", "-//NNU Schedule Converter//")
     simplifed.add("version", "2.0")
-    simplifed.add("x-nnu-url", url)
     dtstamp = datetime.now()
     simplifed.add("x-nnu-dtstamp", dtstamp)
     for component in cal.walk()[::-1]:
