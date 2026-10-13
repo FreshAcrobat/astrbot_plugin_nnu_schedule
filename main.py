@@ -34,13 +34,17 @@ class NNUSchedulePlugin(Star):
 
         self.urls = {}
 
+        self._load_plugin_data()
+
     def _load_plugin_data(self):
         if self.data_file.exists():
             try:
                 with open(self.data_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     self.urls = data.get("urls", {})
-                logger.info(f"成功加载插件数据：{len(self.urls)} 个绑定链接。")
+                logger.info(
+                    f"成功加载插件数据：{len(self.urls)} 个绑定链接。"
+                )
             except Exception as e:
                 logger.error(f"加载插件数据失败: {e}")
         else:
@@ -60,24 +64,23 @@ class NNUSchedulePlugin(Star):
         except Exception as e:
             logger.error(f"保存插件数据失败: {e}")
 
+
     @filter.command("更新课表")
     async def command_update(self, event: AstrMessageEvent):
         """更新课表"""
         try:
             sender_id = event.get_sender_id()
             if sender_id not in self.urls:
-                yield event.plain_result(
-                    "你还没有绑定过课表哦，请先使用 绑定课表 绑定一次吧。"
-                )
+                yield event.plain_result("你还没有绑定过课表哦，请先使用 绑定课表 绑定吧。")
                 return
-
+            
             reference_address = self.urls[sender_id]
 
             raw_data = await fetch_ics(reference_address)
             if not raw_data:
                 yield event.plain_result("无法获取课程表数据，更新失败。")
                 return
-
+            
             ics_content = ics_generator(raw_data)
             if not ics_content:
                 yield event.plain_result("日历文件解析失败，无法生成 ics 文件。")
@@ -87,9 +90,9 @@ class NNUSchedulePlugin(Star):
                 f.write(ics_content)
         except Exception as e:
             logger.error(f"更新课表失败: {e}")
-            yield event.plain_result("更新课表失败")
+            yield event.plain_result("更新课表失败。")
             return
-        yield event.plain_result("更新课表成功")
+        yield event.plain_result("更新课表成功。")
 
     @filter.command("绑定课表")
     async def command_bind(self, event: AstrMessageEvent):
@@ -144,7 +147,7 @@ class NNUSchedulePlugin(Star):
                 self.urls[sender_id] = reference_address
                 self._save_plugin_data()
 
-                await event.send(event.plain_result("绑定课表成功"))
+                await event.send(event.plain_result("绑定课表成功。"))
                 controller.stop()
 
             try:
@@ -153,7 +156,7 @@ class NNUSchedulePlugin(Star):
                 yield event.plain_result("已超时，取消绑定。")
             except Exception as e:
                 logger.error(f"绑定课表时出错：{e}")
-                yield event.plain_result("发生错误，请联系管理员.")
+                yield event.plain_result("发生错误，请联系管理员。")
             finally:
                 event.stop_event()
         except Exception as e:
@@ -167,7 +170,7 @@ class NNUSchedulePlugin(Star):
             now = datetime.now(SHANGHAI_TZ)
             schedule_date = now.date()
             if not Path(self.plugin_data_dir / f"{sender_id}.ics").is_file():
-                yield event.plain_result("你还没有绑定课表哦，先绑定课表吧。")
+                yield event.plain_result("你还没有绑定课表哦，请先使用 绑定课表 绑定吧。")
                 return
 
             try:
@@ -193,7 +196,7 @@ class NNUSchedulePlugin(Star):
             now = datetime.now(SHANGHAI_TZ) + timedelta(days=1)
             schedule_date = now.date()
             if not Path(self.plugin_data_dir / f"{sender_id}.ics").is_file():
-                yield event.plain_result("你还没有绑定课表哦，先绑定课表吧。")
+                yield event.plain_result("你还没有绑定课表哦，请先使用 绑定课表 绑定吧。")
                 return
 
             try:
@@ -210,6 +213,7 @@ class NNUSchedulePlugin(Star):
 
         except Exception as e:
             logger.error(f"{e}")
+
 
     async def get_schedule(self, event: AstrMessageEvent, target_date: date):
         sender_id = event.get_sender_id()
@@ -237,4 +241,4 @@ class NNUSchedulePlugin(Star):
 
     async def terminate(self):
         """插件被卸载/停用"""
-        logger.info("课表插件已卸载。")
+        logger.info("NNU课表插件已卸载。")
